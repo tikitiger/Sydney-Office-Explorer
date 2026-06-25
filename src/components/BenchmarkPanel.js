@@ -19,13 +19,19 @@ const PEER_SORT_DEFAULT_DIRS = { name: 1, grade: 1, vac: 1, rent: -1, nabers: -1
 function getPeerSortVal(row, key, tsMap) {
   const ts = latestTs(tsMap, row);
   switch (key) {
-    case "name":   return (row.building_name || row.address || "").toLowerCase();
-    case "grade":  return GRADE_ORDER.indexOf((row.property_grade || "").replace(/grade\s*/i, "").trim().toUpperCase());
-    case "vac":    return ts ? ts.vr : Infinity;
-    case "rent":   return ts ? ts.nr : 0;
-    case "nabers": return num(row.nabers_energy_rating) ?? -1;
-    case "gs":     return num(row.green_star_rating) ?? -1;
-    default:       return 0;
+    case "name": {
+      const n = (row.building_name || row.address || "").toLowerCase();
+      return n || null;
+    }
+    case "grade": {
+      const idx = GRADE_ORDER.indexOf((row.property_grade || "").replace(/grade\s*/i, "").trim().toUpperCase());
+      return idx >= 0 ? idx : null;
+    }
+    case "vac":    return (ts && ts.vr > 0) ? ts.vr : null;
+    case "rent":   return (ts && ts.nr > 0) ? ts.nr : null;
+    case "nabers": { const v = num(row.nabers_energy_rating); return (v != null && v > 0) ? v : null; }
+    case "gs":     { const v = num(row.green_star_rating);    return (v != null && v > 0) ? v : null; }
+    default:       return null;
   }
 }
 
@@ -135,6 +141,9 @@ export function BenchmarkPanel({ building, peers, tsMap, isCompetitorMode, onClo
   const displayPeers = peerSort.key == null ? peers : [...peers].sort((a, b) => {
     const va = getPeerSortVal(a, peerSort.key, tsMap);
     const vb = getPeerSortVal(b, peerSort.key, tsMap);
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
     if (va < vb) return -peerSort.dir;
     if (va > vb) return peerSort.dir;
     return 0;
@@ -292,8 +301,8 @@ export function BenchmarkPanel({ building, peers, tsMap, isCompetitorMode, onClo
                     h("span", { className: "bp-tbl-name" }, p.building_name || p.address || "—"),
                     nzt > 0 ? h("span", { className: "bp-tbl-nzt" }, nzt) : null,
                   ),
-                  h("td", { className: "bp-td" }, ts ? (ts.vr * 100).toFixed(1) + "%" : "—"),
-                  h("td", { className: "bp-td" }, ts ? "$" + Math.round(ts.nr / 10) * 10 : "—"),
+                  h("td", { className: "bp-td" }, (ts && ts.vr > 0) ? (ts.vr * 100).toFixed(1) + "%" : "—"),
+                  h("td", { className: "bp-td" }, (ts && ts.nr > 0) ? "$" + Math.round(ts.nr / 10) * 10 : "—"),
                   h("td", { className: "bp-td" + (nb > 0 ? " bp-td--green" : "") }, nb > 0 ? nb.toFixed(1) + "★" : "—"),
                   h("td", { className: "bp-td" + (gs > 0 ? " bp-td--green" : "") }, gs > 0 ? gs.toFixed(1) + "★" : "—"),
                 );

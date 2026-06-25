@@ -188,24 +188,34 @@ function App() {
   const benchmarkPeers = useMemo(() => {
     if (!selectedBuilding) return [];
     const b = selectedBuilding;
+    let candidates;
     if (highlightCompetitors && b.id === subjectId) {
-      return [...competitorMap.keys()]
+      candidates = [...competitorMap.keys()]
         .map((id) => data.find((r) => r.id === id))
         .filter((r) => r && r.id !== b.id);
+    } else {
+      const myGrade = normalizeGrade(b.property_grade);
+      const myIdx = GRADE_ORDER.indexOf(myGrade ?? "");
+      const bLat = num(b.latitude), bLon = num(b.longitude);
+      candidates = data.filter((r) => {
+        if (r.id === b.id) return false;
+        const rIdx = GRADE_ORDER.indexOf(normalizeGrade(r.property_grade) ?? "");
+        if (myIdx >= 0 && rIdx >= 0 && Math.abs(rIdx - myIdx) > 1) return false;
+        if (r.geo_3 && r.geo_3 === b.geo_3) return true;
+        const rLat = num(r.latitude), rLon = num(r.longitude);
+        if (bLat != null && bLon != null && rLat != null && rLon != null) {
+          return haversineKm(bLat, bLon, rLat, rLon) <= 1;
+        }
+        return false;
+      });
     }
-    const myGrade = normalizeGrade(b.property_grade);
-    const myIdx = GRADE_ORDER.indexOf(myGrade ?? "");
-    const bLat = num(b.latitude), bLon = num(b.longitude);
-    return data.filter((r) => {
-      if (r.id === b.id) return false;
-      const rIdx = GRADE_ORDER.indexOf(normalizeGrade(r.property_grade) ?? "");
-      if (myIdx >= 0 && rIdx >= 0 && Math.abs(rIdx - myIdx) > 1) return false;
-      if (r.geo_3 && r.geo_3 === b.geo_3) return true;
-      const rLat = num(r.latitude), rLon = num(r.longitude);
-      if (bLat != null && bLon != null && rLat != null && rLon != null) {
-        return haversineKm(bLat, bLon, rLat, rLon) <= 1;
-      }
-      return false;
+    // Deduplicate by property_id (or id as fallback), keeping the first occurrence
+    const seen = new Set();
+    return candidates.filter((r) => {
+      const key = r.property_id || r.id;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
     });
   }, [selectedBuilding, data, competitorMap, highlightCompetitors, subjectId]);
 
