@@ -14,20 +14,7 @@ function latestTs(tsMap, row) {
   return series[series.length - 1];
 }
 
-const PEER_SORT_KEYS = [
-  { key: "name",   label: "Name"    },
-  { key: "grade",  label: "Grade"   },
-  { key: "vac",    label: "Vacancy" },
-  { key: "rent",   label: "Rent"    },
-  { key: "nabers", label: "NABERS"  },
-];
-const PEER_SORT_DEFAULT_DIRS = { name: 1, grade: 1, vac: 1, rent: -1, nabers: -1 };
-
-const NZT_SORT_OPTS = [
-  { key: "default", label: "Subject first" },
-  { key: "name",    label: "Building A→Z" },
-  { key: "count",   label: "Most tenants"  },
-];
+const PEER_SORT_DEFAULT_DIRS = { name: 1, grade: 1, vac: 1, rent: -1, nabers: -1, gs: -1 };
 
 function getPeerSortVal(row, key, tsMap) {
   const ts = latestTs(tsMap, row);
@@ -37,6 +24,7 @@ function getPeerSortVal(row, key, tsMap) {
     case "vac":    return ts ? ts.vr : Infinity;
     case "rent":   return ts ? ts.nr : 0;
     case "nabers": return num(row.nabers_energy_rating) ?? -1;
+    case "gs":     return num(row.green_star_rating) ?? -1;
     default:       return 0;
   }
 }
@@ -129,47 +117,15 @@ function parseNztEntry(str) {
   return { tenant: m[1].trim(), detail: m[2].trim() };
 }
 
-// Compact card with horizontal pill stats
-function PeerCard({ row, tsMap, comp }) {
-  const ts = latestTs(tsMap, row);
-  const vac = ts ? (ts.vr * 100).toFixed(1) + "%" : null;
-  const rent = ts ? "$" + Math.round(ts.nr / 10) * 10 : null;
-  const nb = num(row.nabers_energy_rating);
-  const gs = num(row.green_star_rating);
-  const nabers = nb != null && nb > 0 ? nb.toFixed(1) + "★" : null;
-  const greenStar = gs != null && gs > 0 ? gs.toFixed(1) + "★" : null;
-  const grade = (row.property_grade || "").replace(/grade\s*/i, "").trim().toUpperCase();
-  const color = gradeColor(row.property_grade);
-  const title = row.building_name || row.address || "Building";
-  const nztCount = comp
-    ? ["net_zero_tenants", "net_zero_tenants_2", "net_zero_tenants_3"].filter((k) => comp[k]).length
-    : 0;
-  const elec = comp && comp.electrification && comp.electrification !== "N/A" ? comp.electrification : null;
-
-  return h("div", { className: "bp-peer-card" },
-    h("div", { className: "bp-peer-card-header" },
-      h("div", { className: "bp-peer-grade", style: { background: color } }, grade || "?"),
-      h("div", { className: "bp-peer-name" }, title),
-    ),
-    h("div", { className: "bp-peer-pills" },
-      vac ? h("span", { className: "bp-pill" }, vac + " vac") : null,
-      rent ? h("span", { className: "bp-pill" }, rent + "/sqm") : null,
-      nabers ? h("span", { className: "bp-pill bp-pill--green" }, "NRG " + nabers) : null,
-      greenStar ? h("span", { className: "bp-pill bp-pill--green" }, "GS " + greenStar) : null,
-      nztCount > 0 ? h("span", { className: "bp-pill bp-pill--teal" }, nztCount + " NZT") : null,
-      elec ? h("span", { className: "bp-pill bp-pill--amber" }, elec) : null,
-    ),
-  );
-}
 
 export function BenchmarkPanel({ building, peers, tsMap, isCompetitorMode, onClose, competitorMap }) {
   const [collapsed, setCollapsed] = React.useState(false);
   const [peerSort, setPeerSort] = React.useState({ key: null, dir: 1 });
-  const [nztSort, setNztSort] = React.useState("default");
+  const [nztSort, setNztSort] = React.useState({ key: null, dir: 1 });
 
   React.useEffect(() => {
     setPeerSort({ key: null, dir: 1 });
-    setNztSort("default");
+    setNztSort({ key: null, dir: 1 });
   }, [building?.id]); // eslint-disable-line
 
   if (!building) return null;
@@ -228,9 +184,16 @@ export function BenchmarkPanel({ building, peers, tsMap, isCompetitorMode, onClo
     }
   }
 
-  const displayNztGroups = nztSort === "default" ? nztGroups
-    : nztSort === "name" ? [...nztGroups].sort((a, b) => a.building.localeCompare(b.building))
-    : [...nztGroups].sort((a, b) => b.entries.length - a.entries.length);
+  const nztRows = nztGroups.flatMap((g) =>
+    g.entries.map((e) => ({ building: g.building, isSubject: g.isSubject, tenant: e.tenant, detail: e.detail }))
+  );
+  const displayNztRows = nztSort.key == null ? nztRows : [...nztRows].sort((a, b) => {
+    const va = (nztSort.key === "building" ? a.building : a.tenant).toLowerCase();
+    const vb = (nztSort.key === "building" ? b.building : b.tenant).toLowerCase();
+    if (va < vb) return -nztSort.dir;
+    if (va > vb) return nztSort.dir;
+    return 0;
+  });
 
   return h("div", { className: "bp-panel" + (collapsed ? " bp-panel--collapsed" : "") },
     h("button", {
@@ -287,66 +250,87 @@ export function BenchmarkPanel({ building, peers, tsMap, isCompetitorMode, onClo
           h(SpecItem, { label: "Green Star", value: r.green_star_rating, peerVals: peers.map((p) => p.green_star_rating) }),
         ),
       ),
-      // Peer / competitor list (above NZT)
+      // Peer / competitor table
       peers.length > 0 ? h("div", { className: "bp-section" },
         h("div", { className: "bp-section-title" },
           isCompetitorMode ? "Competitors" : "Peer buildings",
         ),
-        h("div", { className: "bp-sort-bar" },
-          h("span", { className: "bp-sort-label" }, "Sort"),
-          PEER_SORT_KEYS.map(({ key, label }) => {
-            const isActive = peerSort.key === key;
-            return h("button", {
-              key,
-              type: "button",
-              className: "bp-sort-btn" + (isActive ? " bp-sort-btn--active" : ""),
-              onClick: () => setPeerSort((prev) =>
-                prev.key === key
-                  ? { key, dir: -prev.dir }
-                  : { key, dir: PEER_SORT_DEFAULT_DIRS[key] ?? 1 }
+        h("div", { className: "bp-table-wrap" },
+          h("table", { className: "bp-table" },
+            h("thead", null,
+              h("tr", null,
+                ...[
+                  { key: "name",   label: "Building" },
+                  { key: "vac",    label: "Vac"      },
+                  { key: "rent",   label: "Rent"     },
+                  { key: "nabers", label: "NABERS"   },
+                  { key: "gs",     label: "GS"       },
+                ].map(({ key, label }) =>
+                  h("th", {
+                    key,
+                    className: "bp-th" + (key === "name" ? " bp-th--name" : "") + (peerSort.key === key ? " bp-th--active" : ""),
+                    onClick: () => setPeerSort((prev) =>
+                      prev.key === key
+                        ? { key, dir: -prev.dir }
+                        : { key, dir: PEER_SORT_DEFAULT_DIRS[key] ?? 1 }
+                    ),
+                  }, label, peerSort.key === key ? h("span", { className: "bp-th-arrow" }, peerSort.dir === 1 ? "▴" : "▾") : null)
+                ),
               ),
-            }, isActive ? `${label} ${peerSort.dir === 1 ? "▴" : "▾"}` : label);
-          }),
-        ),
-        h("div", { className: "bp-peer-list" },
-          displayPeers.map((p) =>
-            h(PeerCard, {
-              key: p.id,
-              row: p,
-              tsMap,
-              comp: competitorMap ? competitorMap.get(p.id) : null,
-            }),
+            ),
+            h("tbody", null,
+              displayPeers.map((p) => {
+                const ts = latestTs(tsMap, p);
+                const comp = competitorMap ? competitorMap.get(p.id) : null;
+                const grade = (p.property_grade || "").replace(/grade\s*/i, "").trim().toUpperCase();
+                const nb = num(p.nabers_energy_rating);
+                const gs = num(p.green_star_rating);
+                const nzt = comp ? ["net_zero_tenants","net_zero_tenants_2","net_zero_tenants_3"].filter((k) => comp[k]).length : 0;
+                return h("tr", { key: p.id, className: "bp-tr" },
+                  h("td", { className: "bp-td bp-td--name" },
+                    h("span", { className: "bp-tbl-grade", style: { background: gradeColor(p.property_grade) } }, grade || "?"),
+                    h("span", { className: "bp-tbl-name" }, p.building_name || p.address || "—"),
+                    nzt > 0 ? h("span", { className: "bp-tbl-nzt" }, nzt) : null,
+                  ),
+                  h("td", { className: "bp-td" }, ts ? (ts.vr * 100).toFixed(1) + "%" : "—"),
+                  h("td", { className: "bp-td" }, ts ? "$" + Math.round(ts.nr / 10) * 10 : "—"),
+                  h("td", { className: "bp-td" + (nb > 0 ? " bp-td--green" : "") }, nb > 0 ? nb.toFixed(1) + "★" : "—"),
+                  h("td", { className: "bp-td" + (gs > 0 ? " bp-td--green" : "") }, gs > 0 ? gs.toFixed(1) + "★" : "—"),
+                );
+              }),
+            ),
           ),
         ),
       ) : null,
-      // Net zero tenants — grouped by building
-      nztGroups.length > 0 ? h("div", { className: "bp-section" },
+      // Net zero tenants — flat table
+      nztRows.length > 0 ? h("div", { className: "bp-section" },
         h("div", { className: "bp-section-title" }, "Net zero tenants"),
-        nztGroups.length > 1 ? h("div", { className: "bp-sort-bar" },
-          NZT_SORT_OPTS.map(({ key, label }) =>
-            h("button", {
-              key,
-              type: "button",
-              className: "bp-sort-btn" + (nztSort === key ? " bp-sort-btn--active" : ""),
-              onClick: () => setNztSort(key),
-            }, label),
-          ),
-        ) : null,
-        h("div", { className: "bp-nzt-groups" },
-          displayNztGroups.map((g, gi) =>
-            h("div", { key: gi, className: "bp-nzt-group" },
-              h("div", { className: "bp-nzt-group-header" },
-                g.isSubject
-                  ? h("span", { className: "bp-nzt-group-tag bp-nzt-group-tag--subject" }, "Subject")
-                  : h("span", { className: "bp-nzt-group-tag" }, "Competitor"),
-                h("span", { className: "bp-nzt-group-name" }, g.building),
+        h("div", { className: "bp-table-wrap" },
+          h("table", { className: "bp-table" },
+            h("thead", null,
+              h("tr", null,
+                h("th", {
+                  className: "bp-th bp-th--name" + (nztSort.key === "building" ? " bp-th--active" : ""),
+                  onClick: () => setNztSort((prev) => prev.key === "building" ? { key: "building", dir: -prev.dir } : { key: "building", dir: 1 }),
+                }, "Building", nztSort.key === "building" ? h("span", { className: "bp-th-arrow" }, nztSort.dir === 1 ? "▴" : "▾") : null),
+                h("th", {
+                  className: "bp-th" + (nztSort.key === "tenant" ? " bp-th--active" : ""),
+                  onClick: () => setNztSort((prev) => prev.key === "tenant" ? { key: "tenant", dir: -prev.dir } : { key: "tenant", dir: 1 }),
+                }, "Tenant", nztSort.key === "tenant" ? h("span", { className: "bp-th-arrow" }, nztSort.dir === 1 ? "▴" : "▾") : null),
+                h("th", { className: "bp-th" }, "Details"),
               ),
-              h("div", { className: "bp-nzt-list" },
-                g.entries.map((e, ei) =>
-                  h("div", { key: ei, className: "bp-nzt-row" },
-                    h("div", { className: "bp-nzt-tenant" }, e.tenant),
-                    e.detail ? h("div", { className: "bp-nzt-detail" }, e.detail) : null,
+            ),
+            h("tbody", null,
+              displayNztRows.map((row, i) =>
+                h("tr", { key: i, className: "bp-tr" },
+                  h("td", { className: "bp-td bp-td--name" },
+                    h("span", { className: "bp-tbl-tag" + (row.isSubject ? " bp-tbl-tag--subject" : "") },
+                      row.isSubject ? "Subject" : "Comp",
+                    ),
+                    h("span", { className: "bp-tbl-name" }, row.building),
                   ),
+                  h("td", { className: "bp-td bp-td--tenant" }, row.tenant),
+                  h("td", { className: "bp-td bp-td--detail" }, row.detail || "—"),
                 ),
               ),
             ),
