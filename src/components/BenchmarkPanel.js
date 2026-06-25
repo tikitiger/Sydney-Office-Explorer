@@ -308,7 +308,6 @@ export function BenchmarkPanel({ building, peers, tsMap, isCompetitorMode, onClo
                   h("td", { className: "bp-td bp-td--name" },
                     h("span", { className: "bp-tbl-grade", style: { background: gradeColor(p.property_grade) } }, grade || "?"),
                     h("span", { className: "bp-tbl-name" }, p.building_name || p.address || "—"),
-                    nzt > 0 ? h("span", { className: "bp-tbl-nzt", title: `${nzt} net zero tenant${nzt !== 1 ? "s" : ""}` }, nzt) : null,
                   ),
                   h("td", { className: "bp-td" }, (ts && ts.vr > 0) ? (ts.vr * 100).toFixed(1) + "%" : "—"),
                   h("td", { className: "bp-td" }, (ts && ts.nr > 0) ? "$" + Math.round(ts.nr / 10) * 10 : "—"),
