@@ -382,8 +382,11 @@ function App() {
           "div",
           { className: "map-title-wrap" },
         h("h1", { className: "map-title" }, "Sydney Office Explorer"),
-        h("span", { className: "map-sub" },
-          `${selected.length.toLocaleString()} buildings · drag to orbit · shift+drag to pan · scroll to zoom`,
+        h("div", { className: "map-sub-row" },
+          h("span", { className: "map-sub" },
+            `${selected.length.toLocaleString()} buildings · drag to orbit · shift+drag to pan · scroll to zoom`,
+          ),
+          h("span", { className: "demo-badge" }, "Illustrative data only"),
         ),
       ),
       ), // close map-header-brand
