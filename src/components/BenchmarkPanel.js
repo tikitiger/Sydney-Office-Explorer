@@ -31,7 +31,7 @@ function getPeerSortVal(row, key, tsMap, compMap) {
       const idx = GRADE_ORDER.indexOf((row.property_grade || "").replace(/grade\s*/i, "").trim().toUpperCase());
       return idx >= 0 ? idx : null;
     }
-    case "vac":    return (ts && ts.vr > 0) ? ts.vr : null;
+    case "vac":    return (ts && ts.vr != null) ? ts.vr : null;
     case "rent":   return (ts && ts.nr > 0) ? ts.nr : null;
     case "nabers": { const v = num(row.nabers_energy_rating); return (v != null && v > 0) ? v : null; }
     case "elec": {
@@ -309,7 +309,7 @@ export function BenchmarkPanel({ building, peers, tsMap, isCompetitorMode, onClo
                     h("span", { className: "bp-tbl-grade", style: { background: gradeColor(p.property_grade) } }, grade || "?"),
                     h("span", { className: "bp-tbl-name" }, p.building_name || p.address || "—"),
                   ),
-                  h("td", { className: "bp-td" }, (ts && ts.vr > 0) ? (ts.vr * 100).toFixed(1) + "%" : "—"),
+                  h("td", { className: "bp-td" }, (ts && ts.vr != null) ? (ts.vr * 100).toFixed(1) + "%" : "—"),
                   h("td", { className: "bp-td" }, (ts && ts.nr > 0) ? "$" + Math.round(ts.nr / 10) * 10 : "—"),
                   h("td", { className: "bp-td" + (nb > 0 ? " bp-td--green" : "") }, nb > 0 ? nb.toFixed(1) + "★" : "—"),
                   h("td", { className: "bp-td" + (elecShort === "Done" ? " bp-td--green" : "") }, elecShort || "—"),
