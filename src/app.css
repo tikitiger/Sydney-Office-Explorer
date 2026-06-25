@@ -800,13 +800,14 @@ input[type="range"].year-input:active::-moz-range-thumb { cursor: grabbing; }
   bottom: 36px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(4, 31, 43, 0.82);
-  color: rgba(149, 198, 213, 0.92);
+  background: rgba(255, 255, 255, 0.90);
+  color: #1a2a3a;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   padding: 6px 16px;
   border-radius: 20px;
-  border: 1px solid rgba(149, 198, 213, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
   pointer-events: none;
   white-space: nowrap;
   z-index: 15;
