@@ -14,9 +14,13 @@ function latestTs(tsMap, row) {
   return series[series.length - 1];
 }
 
-const PEER_SORT_DEFAULT_DIRS = { name: 1, grade: 1, vac: 1, rent: -1, nabers: -1, gs: -1 };
+const PEER_SORT_DEFAULT_DIRS = { name: 1, grade: 1, vac: 1, rent: -1, nabers: -1, elec: 1 };
 
-function getPeerSortVal(row, key, tsMap) {
+// Electrification sort order — lower = better/more progressed
+const ELEC_ORDER = { "Completed": 0, "Underway": 1, "Feasibilty complete": 2 };
+const ELEC_SHORT  = { "Completed": "Done", "Underway": "Active", "Feasibilty complete": "Feas." };
+
+function getPeerSortVal(row, key, tsMap, compMap) {
   const ts = latestTs(tsMap, row);
   switch (key) {
     case "name": {
@@ -30,7 +34,11 @@ function getPeerSortVal(row, key, tsMap) {
     case "vac":    return (ts && ts.vr > 0) ? ts.vr : null;
     case "rent":   return (ts && ts.nr > 0) ? ts.nr : null;
     case "nabers": { const v = num(row.nabers_energy_rating); return (v != null && v > 0) ? v : null; }
-    case "gs":     { const v = num(row.green_star_rating);    return (v != null && v > 0) ? v : null; }
+    case "elec": {
+      const comp = compMap ? compMap.get(row.id) : null;
+      const e = comp?.electrification;
+      return e ? (ELEC_ORDER[e] ?? 99) : null;
+    }
     default:       return null;
   }
 }
@@ -139,8 +147,8 @@ export function BenchmarkPanel({ building, peers, tsMap, isCompetitorMode, onClo
   const r = building;
 
   const displayPeers = peerSort.key == null ? peers : [...peers].sort((a, b) => {
-    const va = getPeerSortVal(a, peerSort.key, tsMap);
-    const vb = getPeerSortVal(b, peerSort.key, tsMap);
+    const va = getPeerSortVal(a, peerSort.key, tsMap, competitorMap);
+    const vb = getPeerSortVal(b, peerSort.key, tsMap, competitorMap);
     if (va == null && vb == null) return 0;
     if (va == null) return 1;
     if (vb == null) return -1;
@@ -273,7 +281,7 @@ export function BenchmarkPanel({ building, peers, tsMap, isCompetitorMode, onClo
                   { key: "vac",    label: "Vac"      },
                   { key: "rent",   label: "Rent"     },
                   { key: "nabers", label: "NABERS"   },
-                  { key: "gs",     label: "GS"       },
+                  { key: "elec",   label: "Elec"     },
                 ].map(({ key, label }) =>
                   h("th", {
                     key,
@@ -293,18 +301,19 @@ export function BenchmarkPanel({ building, peers, tsMap, isCompetitorMode, onClo
                 const comp = competitorMap ? competitorMap.get(p.id) : null;
                 const grade = (p.property_grade || "").replace(/grade\s*/i, "").trim().toUpperCase();
                 const nb = num(p.nabers_energy_rating);
-                const gs = num(p.green_star_rating);
+                const elec = comp?.electrification || null;
+                const elecShort = elec ? (ELEC_SHORT[elec] || elec) : null;
                 const nzt = comp ? ["net_zero_tenants","net_zero_tenants_2","net_zero_tenants_3"].filter((k) => comp[k]).length : 0;
                 return h("tr", { key: p.id, className: "bp-tr" },
                   h("td", { className: "bp-td bp-td--name" },
                     h("span", { className: "bp-tbl-grade", style: { background: gradeColor(p.property_grade) } }, grade || "?"),
                     h("span", { className: "bp-tbl-name" }, p.building_name || p.address || "—"),
-                    nzt > 0 ? h("span", { className: "bp-tbl-nzt" }, nzt) : null,
+                    nzt > 0 ? h("span", { className: "bp-tbl-nzt", title: `${nzt} net zero tenant${nzt !== 1 ? "s" : ""}` }, nzt) : null,
                   ),
                   h("td", { className: "bp-td" }, (ts && ts.vr > 0) ? (ts.vr * 100).toFixed(1) + "%" : "—"),
                   h("td", { className: "bp-td" }, (ts && ts.nr > 0) ? "$" + Math.round(ts.nr / 10) * 10 : "—"),
                   h("td", { className: "bp-td" + (nb > 0 ? " bp-td--green" : "") }, nb > 0 ? nb.toFixed(1) + "★" : "—"),
-                  h("td", { className: "bp-td" + (gs > 0 ? " bp-td--green" : "") }, gs > 0 ? gs.toFixed(1) + "★" : "—"),
+                  h("td", { className: "bp-td" + (elecShort === "Done" ? " bp-td--green" : "") }, elecShort || "—"),
                 );
               }),
             ),

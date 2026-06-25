@@ -209,12 +209,11 @@ function App() {
         return false;
       });
     }
-    // Deduplicate by property_id (or id as fallback), keeping the first occurrence
+    // Deduplicate by row id — some buildings appear twice in the source data
     const seen = new Set();
     return candidates.filter((r) => {
-      const key = r.property_id || r.id;
-      if (seen.has(key)) return false;
-      seen.add(key);
+      if (seen.has(r.id)) return false;
+      seen.add(r.id);
       return true;
     });
   }, [selectedBuilding, data, competitorMap, highlightCompetitors, subjectId]);
