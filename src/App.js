@@ -377,7 +377,7 @@ function App() {
       h(
         "div",
         { className: "map-header-brand" },
-        h("img", { src: "/1024px-JLL_logo White.png", alt: "JLL", className: "header-jll-logo" }),
+        h("img", { src: import.meta.env.BASE_URL + "1024px-JLL_logo White.png", alt: "JLL", className: "header-jll-logo" }),
         h(
           "div",
           { className: "map-title-wrap" },
@@ -558,7 +558,7 @@ function App() {
     ),
     h("footer", { className: "map-footer" },
       h("div", { className: "footer-brand" },
-        h("img", { src: "/1024px-JLL_logo White.png", alt: "JLL", className: "jll-logo-img" }),
+        h("img", { src: import.meta.env.BASE_URL + "1024px-JLL_logo White.png", alt: "JLL", className: "jll-logo-img" }),
         h("span", { className: "footer-divider" }),
         h("span", { className: "footer-label" }, "Research"),
       ),
