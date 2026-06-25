@@ -402,6 +402,8 @@ function App() {
       h(
         "div",
         { className: "map-controls" },
+        // Building search
+        h(BuildingSearch, { buildings: data, onSelect: setSelectedBuilding }),
         // Grade chips
         h("div", { className: "ctl" },
           h("span", { className: "ctl-label" + (gradeFilter.length > 0 ? " ctl-label--active" : "") }, "Grade"),
@@ -576,6 +578,69 @@ function App() {
         h("span", { className: "footer-label" }, "Research"),
       ),
       h("span", { className: "footer-tag" }, "Hackathon 2026"),
+    ),
+  );
+}
+
+// ---- BuildingSearch ----
+function BuildingSearch({ buildings, onSelect }) {
+  const { useState, useRef, useEffect } = React;
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const q = query.trim().toLowerCase();
+  const results = q.length < 2 ? [] : buildings
+    .filter((b) => (b.building_name || b.address || "").toLowerCase().includes(q))
+    .sort((a, b) => {
+      const na = (a.building_name || a.address || "").toLowerCase();
+      const nb = (b.building_name || b.address || "").toLowerCase();
+      const sa = na.startsWith(q) ? 0 : 1;
+      const sb = nb.startsWith(q) ? 0 : 1;
+      return sa - sb || na.localeCompare(nb);
+    })
+    .slice(0, 8);
+
+  function select(building) {
+    onSelect(building);
+    setQuery("");
+    setOpen(false);
+  }
+
+  return h("div", { className: "ctl building-search", ref },
+    h("span", { className: "ctl-label" }, "Search"),
+    h("div", { className: "search-wrap" },
+      h("input", {
+        type: "text",
+        className: "search-input",
+        placeholder: "Building name…",
+        value: query,
+        onChange: (e) => { setQuery(e.target.value); setOpen(true); },
+        onFocus: () => { if (q.length >= 2) setOpen(true); },
+      }),
+      open && results.length > 0
+        ? h("div", { className: "search-results" },
+            results.map((b) =>
+              h("div", {
+                key: b.id,
+                className: "search-result-item",
+                onMouseDown: (e) => { e.preventDefault(); select(b); },
+              },
+                h("span", { className: "search-result-name" }, b.building_name || b.address || "—"),
+                b.address && b.building_name && b.address !== b.building_name
+                  ? h("span", { className: "search-result-addr" }, b.address)
+                  : null,
+              )
+            ),
+          )
+        : null,
     ),
   );
 }
