@@ -1,3 +1,13 @@
+# Source data — use scripts/ to regenerate JSON from your own data
+public/*.xlsx
+public/*.zip
+public/*.shp
+public/*.shp.xml
+public/Screenshot captures/
+
+# Dev screenshots
+screenshot*.png
+
 # Logs
 logs
 *.log

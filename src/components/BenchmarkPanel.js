@@ -14,6 +14,33 @@ function latestTs(tsMap, row) {
   return series[series.length - 1];
 }
 
+const PEER_SORT_KEYS = [
+  { key: "name",   label: "Name"    },
+  { key: "grade",  label: "Grade"   },
+  { key: "vac",    label: "Vacancy" },
+  { key: "rent",   label: "Rent"    },
+  { key: "nabers", label: "NABERS"  },
+];
+const PEER_SORT_DEFAULT_DIRS = { name: 1, grade: 1, vac: 1, rent: -1, nabers: -1 };
+
+const NZT_SORT_OPTS = [
+  { key: "default", label: "Subject first" },
+  { key: "name",    label: "Building A→Z" },
+  { key: "count",   label: "Most tenants"  },
+];
+
+function getPeerSortVal(row, key, tsMap) {
+  const ts = latestTs(tsMap, row);
+  switch (key) {
+    case "name":   return (row.building_name || row.address || "").toLowerCase();
+    case "grade":  return GRADE_ORDER.indexOf((row.property_grade || "").replace(/grade\s*/i, "").trim().toUpperCase());
+    case "vac":    return ts ? ts.vr : Infinity;
+    case "rent":   return ts ? ts.nr : 0;
+    case "nabers": return num(row.nabers_energy_rating) ?? -1;
+    default:       return 0;
+  }
+}
+
 function gradeColor(g) {
   const norm = (g || "").replace(/grade\s*/i, "").trim().toUpperCase();
   const idx = GRADE_ORDER.indexOf(norm);
@@ -137,10 +164,26 @@ function PeerCard({ row, tsMap, comp }) {
 
 export function BenchmarkPanel({ building, peers, tsMap, isCompetitorMode, onClose, competitorMap }) {
   const [collapsed, setCollapsed] = React.useState(false);
+  const [peerSort, setPeerSort] = React.useState({ key: null, dir: 1 });
+  const [nztSort, setNztSort] = React.useState("default");
+
+  React.useEffect(() => {
+    setPeerSort({ key: null, dir: 1 });
+    setNztSort("default");
+  }, [building?.id]); // eslint-disable-line
 
   if (!building) return null;
 
   const r = building;
+
+  const displayPeers = peerSort.key == null ? peers : [...peers].sort((a, b) => {
+    const va = getPeerSortVal(a, peerSort.key, tsMap);
+    const vb = getPeerSortVal(b, peerSort.key, tsMap);
+    if (va < vb) return -peerSort.dir;
+    if (va > vb) return peerSort.dir;
+    return 0;
+  });
+
   const bArea = num(r.building_area);
   const bYear = num(r.completion_year);
   const bAge = bYear != null && bYear >= 1900 ? CURRENT_YEAR - bYear : null;
@@ -184,6 +227,10 @@ export function BenchmarkPanel({ building, peers, tsMap, isCompetitorMode, onClo
       }
     }
   }
+
+  const displayNztGroups = nztSort === "default" ? nztGroups
+    : nztSort === "name" ? [...nztGroups].sort((a, b) => a.building.localeCompare(b.building))
+    : [...nztGroups].sort((a, b) => b.entries.length - a.entries.length);
 
   return h("div", { className: "bp-panel" + (collapsed ? " bp-panel--collapsed" : "") },
     h("button", {
@@ -245,8 +292,24 @@ export function BenchmarkPanel({ building, peers, tsMap, isCompetitorMode, onClo
         h("div", { className: "bp-section-title" },
           isCompetitorMode ? "Competitors" : "Peer buildings",
         ),
+        h("div", { className: "bp-sort-bar" },
+          h("span", { className: "bp-sort-label" }, "Sort"),
+          PEER_SORT_KEYS.map(({ key, label }) => {
+            const isActive = peerSort.key === key;
+            return h("button", {
+              key,
+              type: "button",
+              className: "bp-sort-btn" + (isActive ? " bp-sort-btn--active" : ""),
+              onClick: () => setPeerSort((prev) =>
+                prev.key === key
+                  ? { key, dir: -prev.dir }
+                  : { key, dir: PEER_SORT_DEFAULT_DIRS[key] ?? 1 }
+              ),
+            }, isActive ? `${label} ${peerSort.dir === 1 ? "▴" : "▾"}` : label);
+          }),
+        ),
         h("div", { className: "bp-peer-list" },
-          peers.map((p) =>
+          displayPeers.map((p) =>
             h(PeerCard, {
               key: p.id,
               row: p,
@@ -259,8 +322,18 @@ export function BenchmarkPanel({ building, peers, tsMap, isCompetitorMode, onClo
       // Net zero tenants — grouped by building
       nztGroups.length > 0 ? h("div", { className: "bp-section" },
         h("div", { className: "bp-section-title" }, "Net zero tenants"),
+        nztGroups.length > 1 ? h("div", { className: "bp-sort-bar" },
+          NZT_SORT_OPTS.map(({ key, label }) =>
+            h("button", {
+              key,
+              type: "button",
+              className: "bp-sort-btn" + (nztSort === key ? " bp-sort-btn--active" : ""),
+              onClick: () => setNztSort(key),
+            }, label),
+          ),
+        ) : null,
         h("div", { className: "bp-nzt-groups" },
-          nztGroups.map((g, gi) =>
+          displayNztGroups.map((g, gi) =>
             h("div", { key: gi, className: "bp-nzt-group" },
               h("div", { className: "bp-nzt-group-header" },
                 g.isSubject

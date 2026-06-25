@@ -548,6 +548,7 @@ function App() {
         { className: "map-canvas-area" },
         h(Map3D, { buildings: selected, encoder, geoKey: fitKey, basemap, competitorMap, highlightCompetitors, showLabels, subjectId, peerIds, selectedBuildingId: selectedBuilding?.id, onBuildingClick: setSelectedBuilding }),
         h(Legend, { attr, encoder, panelOpen: !!selectedBuilding }),
+        !selectedBuilding ? h("div", { className: "map-click-hint" }, "Click a building to open analysis") : null,
         selectedBuilding ? h(BenchmarkPanel, {
           building: selectedBuilding,
           peers: benchmarkPeers,
