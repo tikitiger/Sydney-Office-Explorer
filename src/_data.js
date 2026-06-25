@@ -18,7 +18,7 @@ export function useHexData(_id) {
     isEmpty: false,
   })
   React.useEffect(() => {
-    fetch('/buildings.json')
+    fetch(import.meta.env.BASE_URL + 'buildings.json')
       .then((r) => {
         if (!r.ok) throw new Error('Failed to load buildings.json')
         return r.json()

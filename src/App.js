@@ -164,8 +164,8 @@ function App() {
   }, [cfg.basemap]); // eslint-disable-line
 
   useEffect(() => {
-    fetch("/competitors.json").then((r) => r.json()).then(setCompetitors).catch(() => {});
-    fetch("/timeseries.json").then((r) => r.json()).then(setTsMap).catch(() => {});
+    fetch(import.meta.env.BASE_URL + "competitors.json").then((r) => r.json()).then(setCompetitors).catch(() => {});
+    fetch(import.meta.env.BASE_URL + "timeseries.json").then((r) => r.json()).then(setTsMap).catch(() => {});
   }, []);
 
   const data = rows || [];
