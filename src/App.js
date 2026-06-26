@@ -157,6 +157,7 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showLabels, setShowLabels] = useState(true);
   const [selectedBuilding, setSelectedBuilding] = useState(null);
+  const [focusBuildingId, setFocusBuildingId] = useState(null);
   const highlightCompetitors = selectedBuilding != null;
 
   useEffect(() => {
@@ -402,8 +403,6 @@ function App() {
       h(
         "div",
         { className: "map-controls" },
-        // Building search
-        h(BuildingSearch, { buildings: data, onSelect: setSelectedBuilding }),
         // Grade chips
         h("div", { className: "ctl" },
           h("span", { className: "ctl-label" + (gradeFilter.length > 0 ? " ctl-label--active" : "") }, "Grade"),
@@ -421,6 +420,8 @@ function App() {
             ),
           ),
         ),
+        // Building search
+        h(BuildingSearch, { buildings: data, onSelect: (b) => { setSelectedBuilding(b); setFocusBuildingId(b.id); } }),
         // Region dropdown
         h("div", { className: "ctl" },
           h("span", { className: "ctl-label" + (geo1.length > 0 ? " ctl-label--active" : "") }, "Region"),
@@ -557,7 +558,7 @@ function App() {
       h(
         "div",
         { className: "map-canvas-area" },
-        h(Map3D, { buildings: selected, encoder, geoKey: fitKey, basemap, competitorMap, highlightCompetitors, showLabels, subjectId, peerIds, selectedBuildingId: selectedBuilding?.id, onBuildingClick: setSelectedBuilding }),
+        h(Map3D, { buildings: selected, encoder, geoKey: fitKey, basemap, competitorMap, highlightCompetitors, showLabels, subjectId, peerIds, selectedBuildingId: selectedBuilding?.id, focusBuildingId, onBuildingClick: setSelectedBuilding }),
         h(Legend, { attr, encoder, panelOpen: !!selectedBuilding }),
         !selectedBuilding ? h("div", { className: "map-click-hint" }, "Click a building to open analysis") : null,
         selectedBuilding ? h(BenchmarkPanel, {
@@ -631,7 +632,7 @@ function BuildingSearch({ buildings, onSelect }) {
               h("div", {
                 key: b.id,
                 className: "search-result-item",
-                onMouseDown: (e) => { e.preventDefault(); select(b); },
+                onClick: () => select(b),
               },
                 h("span", { className: "search-result-name" }, b.building_name || b.address || "—"),
                 b.address && b.building_name && b.address !== b.building_name

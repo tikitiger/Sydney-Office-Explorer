@@ -73,7 +73,7 @@ function prepBuilding(row) {
   return { row, rings, cx: sx / n, cy: sy / n, height: hgt };
 }
 
-export function Map3D({ buildings, encoder, geoKey, basemap, competitorMap, highlightCompetitors, showLabels = true, subjectId, peerIds, selectedBuildingId, onBuildingClick }) {
+export function Map3D({ buildings, encoder, geoKey, basemap, competitorMap, highlightCompetitors, showLabels = true, subjectId, peerIds, selectedBuildingId, focusBuildingId, onBuildingClick }) {
   const baseDef = BASEMAP_BY_KEY.get(basemap) || BASEMAP_BY_KEY.get(DEFAULT_BASEMAP);
   const isDark = !!baseDef.dark;
   const { useRef, useEffect, useState, useMemo, useCallback } = React;
@@ -531,6 +531,26 @@ export function Map3D({ buildings, encoder, geoKey, basemap, competitorMap, high
     fit();
     requestDraw();
   }, [geoKey]); // eslint-disable-line
+
+  useEffect(() => {
+    if (!focusBuildingId) return;
+    const match = geom.find((g) => g.row.id === focusBuildingId);
+    if (!match || !camRef.current) return;
+    const cam = camRef.current;
+    let minX = Infinity, maxX = -Infinity;
+    for (const ring of match.rings) {
+      for (const p of ring) {
+        if (p[0] < minX) minX = p[0];
+        if (p[0] > maxX) maxX = p[0];
+      }
+    }
+    const spanX = Math.max(maxX - minX, 1);
+    const targetZoom = (size.w * 0.25) / spanX;
+    cam.cx = match.cx;
+    cam.cy = match.cy;
+    cam.zoom = Math.max(cam.zoom, targetZoom);
+    requestDraw();
+  }, [focusBuildingId]); // eslint-disable-line
 
   useEffect(() => {
     if (!camRef.current) fit();
