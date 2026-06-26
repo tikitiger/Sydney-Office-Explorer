@@ -545,7 +545,7 @@ export function Map3D({ buildings, encoder, geoKey, basemap, competitorMap, high
       }
     }
     const spanX = Math.max(maxX - minX, 1);
-    const targetZoom = (size.w * 0.25) / spanX;
+    const targetZoom = (size.w * 0.12) / spanX;
     cam.cx = match.cx;
     cam.cy = match.cy;
     cam.zoom = Math.max(cam.zoom, targetZoom);
